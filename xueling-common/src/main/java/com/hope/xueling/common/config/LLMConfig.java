@@ -53,6 +53,11 @@ public class LLMConfig {
     @Value("${llm.deepseek.chat-model}")
     private String deepSeekChatModel;
     /**
+     * DeepSeek Flash 模型名称，供词典缺失释义时使用
+     */
+    @Value("${llm.deepseek.flash-model:deepseek-flash}")
+    private String deepSeekFlashModel;
+    /**
      * DeepSeek 推理模型名称
      */
     @Value("${llm.deepseek.reasoner-model}")
@@ -110,6 +115,25 @@ public class LLMConfig {
                 .openAiApi(openAiApi)
                 .defaultOptions(OpenAiChatOptions.builder()
                         .model(deepSeekChatModel)
+                        .build())
+                .build();
+    }
+
+    /**
+     * 配置词典翻译专用的 DeepSeek Flash 模型
+     * @return ChatModel
+     */
+    @Bean("springDeepseekFlashChatModel")
+    public ChatModel deepseekFlashChatModel() {
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .apiKey(deepSeekApiKey)
+                .baseUrl(deepSeekUrl)
+                .build();
+
+        return OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .model(deepSeekFlashModel)
                         .build())
                 .build();
     }

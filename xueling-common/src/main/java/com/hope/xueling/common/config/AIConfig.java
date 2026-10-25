@@ -39,5 +39,17 @@ public class AIConfig {
                 .build();
     }
 
+    /**
+     * 配置词典翻译专用的 DeepSeek Flash 客户端
+     * @param deepseekFlashChatModel DeepSeek Flash 模型
+     * @return ChatClient
+     */
+    @Bean("deepseekFlashChatClient")
+    public ChatClient deepseekFlashChatClient(@Qualifier("springDeepseekFlashChatModel") ChatModel deepseekFlashChatModel) {
+        return ChatClient.builder(deepseekFlashChatModel)
+                .defaultAdvisors(SimpleLoggerAdvisor.builder().build())
+                .build();
+    }
+
 
 }

@@ -4,9 +4,9 @@ import com.hope.xueling.english.vocab.domain.dto.WordDictionaryDTO;
 import com.hope.xueling.english.vocab.domain.dto.WordTranslationDTO;
 import com.hope.xueling.english.vocab.service.IWordDefinitionService;
 import com.hope.xueling.english.vocab.util.WordNormalizer;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
@@ -18,10 +18,13 @@ import java.util.stream.Collectors;
  * @since 2026/1/26
  */
 @Slf4j
-@RequiredArgsConstructor
 @Service
 public class WordDefinitionServiceImpl implements IWordDefinitionService {
-    private final ChatClient doubaoChatClient;
+    private final ChatClient deepseekFlashChatClient;
+
+    public WordDefinitionServiceImpl(@Qualifier("deepseekFlashChatClient") ChatClient deepseekFlashChatClient) {
+        this.deepseekFlashChatClient = deepseekFlashChatClient;
+    }
 
     /**
      * 调用大模型生成结构化词典条目，并做严格校验：返回词必须与输入词规范化后一致、义项不能为空、长度超限或格式异常时返回 null
@@ -36,7 +39,7 @@ public class WordDefinitionServiceImpl implements IWordDefinitionService {
                 一个词性可有多个义项；词性使用 n.、v.、adj. 等常见缩写。不能确认释义时返回 translations: []。
                 不要改写 word，也不要凭空生成其他词条。音标或例句不能确认时用空字符串。
                 """;
-        WordDictionaryDTO result = doubaoChatClient.prompt()
+        WordDictionaryDTO result = deepseekFlashChatClient.prompt()
                 .system(systemPrompt)
                 .user("请翻译：" + word)
                 .call()

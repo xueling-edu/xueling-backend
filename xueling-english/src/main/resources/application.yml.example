@@ -155,6 +155,7 @@ llm:
     api-key: ${DEEPSEEK_API_KEY}
     url: "https://api.deepseek.com/"
     chat-model: "deepseek-chat"
+    flash-model: "deepseek-flash"
     reasoner-model: "deepseek-reasoner"
   zhipu:
     api-key: ${ZHIPU_API_KEY}
