@@ -172,11 +172,11 @@ public class StudyServiceImpl implements IStudyService {
         if (version != request.getExpectedVersion()) {
             throw new BusinessException("卡片已在其他设备更新，请刷新今日学习");
         }
+        if (!studyMapper.eligibleNewWord(userId, wordId)) {
+            throw new BusinessException("该单词不在已启用词书中，请同步最新学习计划");
+        }
         DayWindow day = dayWindow(settings, reviewedAt);
         if (progress == null) {
-            if (!studyMapper.eligibleNewWord(userId, wordId)) {
-                throw new BusinessException("该单词不在已启用词书中");
-            }
             if (studyMapper.countIntroduced(userId, day.date()) >= settings.getDailyNewLimit()) {
                 throw new BusinessException("今日新词额度已用完");
             }
@@ -206,12 +206,15 @@ public class StudyServiceImpl implements IStudyService {
                 version == 0 ? null : progress.dueAt(), scheduled.dueAt(), request.getElapsedMs(),
                 reviewScheduler.version(), settings.getDesiredRetention(), scheduled.state(),
                 versionAfter, request.getRequestId());
-        // Only a saved rating can complete a day. The unique date key makes retries harmless.
+        // 今天稍后还会到期的短时重学卡完成后，才算完成当天任务。
         if (studyMapper.countDue(userId, reviewedAt) == 0) {
             int introducedToday = studyMapper.countIntroduced(userId, day.date());
             int remaining = Math.max(0, settings.getDailyNewLimit() - introducedToday);
             if (remaining == 0 || studyMapper.newCards(userId, 1).isEmpty()) {
-                studyMapper.insertCheckIn(userId, day.date(), reviewedAt);
+                Instant nextDue = studyMapper.nextDue(userId, reviewedAt);
+                if (nextDue == null || !nextDue.isBefore(day.end())) {
+                    studyMapper.insertCheckIn(userId, day.date(), reviewedAt);
+                }
             }
         }
         return new StudyReviewResultVO(String.valueOf(wordId), scheduled.state(), scheduled.dueAt(), versionAfter);
@@ -337,11 +340,13 @@ public class StudyServiceImpl implements IStudyService {
             LocalDate date = first.plusDays(i);
             DayAggregate aggregate = aggregates.getOrDefault(date, new DayAggregate());
             Instant cutoff = date.equals(today) ? current : date.plusDays(1).atStartOfDay(zone).toInstant();
+            int backlog = date.equals(today) ? studyMapper.countDue(userId, current)
+                    : studyMapper.dueBacklogAt(userId, cutoff);
             result.add(new StudyDayStatsVO(date, aggregate.reviews, aggregate.newWords,
                     aggregate.elapsedMs, aggregate.dueAttempts,
                     aggregate.dueAttempts == 0 ? null : (double) aggregate.dueSuccesses / aggregate.dueAttempts,
                     aggregate.dueAttempts == 0 ? null : (double) aggregate.goodOrEasyRecalls / aggregate.dueAttempts,
-                    studyMapper.dueBacklogAt(userId, cutoff)));
+                    backlog));
         }
         return result;
     }
@@ -389,7 +394,7 @@ public class StudyServiceImpl implements IStudyService {
                 stabilityDays = Card.fromJson(row.cardJson()).getStability();
                 wordStage = stabilityDays != null && stabilityDays >= 30 ? "STABLE" : "CONSOLIDATING";
             }
-            boolean isDue = !row.dueAt().isAfter(current);
+            boolean isDue = row.inStudyPlan() && !row.dueAt().isAfter(current);
             if (isDue) due++;
             switch (wordStage) {
                 case "LEARNING" -> learning++;
@@ -397,7 +402,7 @@ public class StudyServiceImpl implements IStudyService {
                 default -> stable++;
             }
             allWords.add(new StudyFamiliarityWordVO(String.valueOf(row.wordId()), row.word(),
-                    row.meaning(), wordStage, isDue, row.dueAt(), row.lapseCount(),
+                    row.meaning(), wordStage, row.inStudyPlan(), isDue, row.dueAt(), row.lapseCount(),
                     row.lastRating(), stabilityDays));
         }
         List<StudyFamiliarityWordVO> filtered = allWords.stream()

@@ -128,6 +128,52 @@ class StudyDatabaseIntegrationTest {
     }
 
     @Test
+    void dueCardFollowsEnabledBooksAndSharedWordRemainsAvailable() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(
+                jdbcUrl(), System.getenv("XUELING_DB_USERNAME"), System.getenv("XUELING_DB_PASSWORD"));
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        StudyMapper mapper = new StudyMapper(jdbc);
+        TransactionTemplate transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+
+        transaction.execute(status -> {
+            jdbc.update("INSERT INTO user (password) VALUES (?)", "study-fixture-only");
+            long userId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            mapper.ensureSettings(userId);
+            long systemBookId = jdbc.queryForObject(
+                    "SELECT id FROM word_book WHERE system_key='CET4'", Long.class);
+            String wordId = mapper.newCards(userId, 1).getFirst().getWordId();
+
+            jdbc.update("INSERT INTO word_book (user_id,name) VALUES (?,?)", userId, "shared-study-fixture");
+            long personalBookId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+            jdbc.update("INSERT INTO word_book_dictionary_relation (word_book_id,word_id) VALUES (?,?)",
+                    personalBookId, Long.parseLong(wordId));
+            mapper.setBookEnabled(userId, personalBookId, true);
+
+            SubmitStudyReviewDTO request = new SubmitStudyReviewDTO();
+            request.setWordId(wordId);
+            request.setRating(3);
+            request.setExpectedVersion(0);
+            request.setRequestId(UUID.randomUUID().toString());
+            new StudyServiceImpl(mapper, new FsrsReviewScheduler()).submitReview(userId, request);
+            jdbc.update("UPDATE word_learning_progress SET due_at=? WHERE user_id=? AND word_id=?",
+                    LocalDateTime.ofInstant(Instant.now().minusSeconds(60), ZoneOffset.UTC),
+                    userId, Long.parseLong(wordId));
+
+            mapper.setBookEnabled(userId, systemBookId, false);
+            assertEquals(1, mapper.countDue(userId, Instant.now()));
+            assertEquals(wordId, mapper.dueCards(userId, Instant.now(), 20).getFirst().getWordId());
+
+            mapper.setBookEnabled(userId, personalBookId, false);
+            assertEquals(0, mapper.countDue(userId, Instant.now()));
+            assertTrue(mapper.dueCards(userId, Instant.now(), 20).isEmpty());
+            mapper.setBookEnabled(userId, personalBookId, true);
+            assertEquals(1, mapper.countDue(userId, Instant.now()));
+            status.setRollbackOnly();
+            return null;
+        });
+    }
+
+    @Test
     void concurrentNewCardRatingsSaveOnlyOneReview() throws Exception {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(
                 jdbcUrl(),

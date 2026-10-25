@@ -8,6 +8,7 @@ import java.time.Instant;
  * @param word 单词
  * @param meaning 释义
  * @param stage 掌握阶段：LEARNING 学习中、CONSOLIDATING 巩固中、STABLE 已稳定
+ * @param inStudyPlan 是否仍属于至少一本已启用词书
  * @param due 当前是否已到期
  * @param dueAt 下次到期时间
  * @param lapseCount 遗忘次数（复习态下评为忘记的次数）
@@ -17,5 +18,5 @@ import java.time.Instant;
  * @since 2026/10/24
  */
 public record StudyFamiliarityWordVO(String wordId, String word, String meaning,
-                                     String stage, boolean due, Instant dueAt,
+                                     String stage, boolean inStudyPlan, boolean due, Instant dueAt,
                                      int lapseCount, Integer lastRating, Double stabilityDays) {}

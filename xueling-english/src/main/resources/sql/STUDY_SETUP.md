@@ -4,15 +4,17 @@
 
 ## 已有开发数据库
 
-旧的 `word_learning_progress` 和 `word_review_record` 没有真实数据时，依次执行：
+旧的 `word_learning_progress` 和 `word_review_record` **都为空**时，备份数据库并确认目标数据库名称后，依次执行：
 
-1. `migrate_study.sql`：删除旧的空学习表并扩展词书结构。
+1. `migrate_study.sql`：先检查旧表无记录且词书结构未升级，再删除旧的空学习表并扩展词书结构；检查不通过时立即停止。
 2. `user_study_settings_table.sql`
 3. `user_study_book_table.sql`
 4. `word_learning_progress_table.sql`
 5. `word_review_record_table.sql`
 6. `study_check_in_table.sql`：创建每日自动打卡表（已有学习数据库也需单独执行）。
 7. `seed_cet4.sql`：从已导入的 ECDICT 建立系统四级词书。
+
+如果任一旧学习表有记录，**不要执行** `migrate_study.sql`；旧表只有二档复习结果，无法直接等价转换为新 FSRS 卡片，需要先制定保留历史记录和初始化新卡片的迁移方案。脚本报错后不得使用 `mysql --force` 继续执行。
 
 如果 ECDICT 尚未导入，先完成词典导入，再执行 `seed_cet4.sql`。`migrate_study.sql` 只执行一次。MySQL 命令行执行 SQL 文件时显式指定 `--default-character-set=utf8mb4`。
 

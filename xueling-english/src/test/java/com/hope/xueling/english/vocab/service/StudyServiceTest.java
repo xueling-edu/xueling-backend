@@ -40,6 +40,7 @@ class StudyServiceTest {
         boolean progressQueried;
         ProgressRow savedProgress;
         int insertedCheckIns;
+        Instant nextDue;
         boolean moreNewCards;
         List<LocalDate> checkedDates = List.of();
         List<HistoryReviewRow> historyRows = List.of();
@@ -85,7 +86,7 @@ class StudyServiceTest {
         @Override public int countDueAttempts(long userId, Instant start, Instant end) { return 0; }
         @Override public int countDueSuccesses(long userId, Instant start, Instant end) { return 0; }
         @Override public int countLearned(long userId) { return 0; }
-        @Override public Instant nextDue(long userId, Instant now) { return null; }
+        @Override public Instant nextDue(long userId, Instant now) { return nextDue; }
         @Override public List<HistoryReviewRow> historyReviews(long userId, Instant start, Instant end) {
             return historyRows;
         }
@@ -129,6 +130,18 @@ class StudyServiceTest {
         mapper.introduced = 15;
 
         assertThrows(BusinessException.class, () -> service.submitReview(USER_ID, review()));
+    }
+
+    @Test
+    void pausedBookRejectsAStaleReviewWithoutChangingProgress() {
+        mapper.eligible = false;
+        mapper.savedProgress = new StudyMapper.ProgressRow(1L, "{}", "REVIEW",
+                Instant.EPOCH, 1, 1, 0);
+        SubmitStudyReviewDTO request = review();
+        request.setExpectedVersion(1);
+
+        assertThrows(BusinessException.class, () -> service.submitReview(USER_ID, request));
+        assertEquals(1, mapper.savedProgress.version());
     }
 
     @Test
@@ -201,6 +214,19 @@ class StudyServiceTest {
     }
 
     @Test
+    void aRatingWaitsForAnotherCardDueLaterTodayBeforeCheckingIn() {
+        Instant instant = Instant.parse("2026-10-20T12:00:00Z");
+        mapper.settings = new StudySettingsVO("Asia/Shanghai", 1, 0.9);
+        mapper.nextDue = instant.plusSeconds(600);
+        var fixedService = new StudyServiceImpl(mapper, new FsrsReviewScheduler(),
+                Clock.fixed(instant, ZoneOffset.UTC));
+
+        fixedService.submitReview(USER_ID, review());
+
+        assertEquals(0, mapper.insertedCheckIns);
+    }
+
+    @Test
     void calendarReportsStreakAcrossMonthBoundaryAndKeepsLearningSeparate() {
         Instant instant = Instant.parse("2026-10-20T12:00:00Z");
         mapper.checkedDates = List.of(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 1),
@@ -224,6 +250,7 @@ class StudyServiceTest {
     @Test
     void historyCountsFormalDueRecallSeparatelyFromShortTermLearning() {
         Instant instant = Instant.parse("2026-10-20T12:00:00Z");
+        mapper.dueCount = 5;
         mapper.historyRows = List.of(
                 new StudyMapper.HistoryReviewRow(instant.minusSeconds(3600),
                         instant.minusSeconds(7200), "REVIEW", 1, 2000),
@@ -249,6 +276,7 @@ class StudyServiceTest {
         assertEquals(3, today.dueRecallAttempts());
         assertEquals(2.0 / 3.0, today.dueRecallRate());
         assertEquals(1.0 / 3.0, today.goodOrEasyRate());
+        assertEquals(5, today.dueBacklog());
     }
 
     @Test
@@ -260,9 +288,9 @@ class StudyServiceTest {
         String stable = Card.builder().state(State.REVIEW).stability(45.0)
                 .due(instant.minusSeconds(60)).build().toJson();
         mapper.familiarityRows = List.of(
-                new StudyMapper.FamiliarityRow(1, "one", "一", "LEARNING", learning, instant.plusSeconds(600), 0, 3),
-                new StudyMapper.FamiliarityRow(2, "two", "二", "REVIEW", consolidating, instant.minusSeconds(60), 2, 1),
-                new StudyMapper.FamiliarityRow(3, "three", "三", "REVIEW", stable, instant.minusSeconds(60), 0, 4));
+                new StudyMapper.FamiliarityRow(1, "one", "一", "LEARNING", learning, instant.plusSeconds(600), 0, 3, true),
+                new StudyMapper.FamiliarityRow(2, "two", "二", "REVIEW", consolidating, instant.minusSeconds(60), 2, 1, true),
+                new StudyMapper.FamiliarityRow(3, "three", "三", "REVIEW", stable, instant.minusSeconds(60), 0, 4, false));
         var fixedService = new StudyServiceImpl(mapper, new FsrsReviewScheduler(),
                 Clock.fixed(instant, ZoneOffset.UTC));
 
@@ -272,8 +300,10 @@ class StudyServiceTest {
         assertEquals(1, result.learningCount());
         assertEquals(1, result.consolidatingCount());
         assertEquals(1, result.stableCount());
-        assertEquals(2, result.dueCount());
+        assertEquals(1, result.dueCount());
         assertEquals("three", result.words().getFirst().word());
+        assertFalse(result.words().getFirst().inStudyPlan());
+        assertFalse(result.words().getFirst().due());
         assertEquals("two", result.attentionWords().getFirst().word());
         assertThrows(com.hope.xueling.common.exception.ValidationException.class,
                 () -> fixedService.familiarity(USER_ID, 99L, "ALL", 1));

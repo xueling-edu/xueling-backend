@@ -72,7 +72,15 @@ public class StudyMapper {
      * @param lastRating 最近一次评分
      */
     public record FamiliarityRow(long wordId, String word, String meaning, String state,
-                                 String cardJson, Instant dueAt, int lapseCount, Integer lastRating) {}
+                                 String cardJson, Instant dueAt, int lapseCount, Integer lastRating,
+                                 boolean inStudyPlan) {}
+
+    /** A learned word stays in the review queue while any enabled book contains it. */
+    private static final String ACTIVE_BOOK_WORD = "EXISTS (SELECT 1 FROM user_study_book s "
+            + "JOIN word_book b ON b.id=s.book_id "
+            + "JOIN word_book_dictionary_relation rel ON rel.word_book_id=b.id "
+            + "WHERE s.user_id=p.user_id AND s.enabled=1 AND b.is_deleted=0 "
+            + "AND (b.book_type='SYSTEM' OR b.user_id=s.user_id) AND rel.word_id=p.word_id)";
 
     /**
      * 把结果集中的 UTC 时间列还原为 Instant
@@ -169,8 +177,9 @@ public class StudyMapper {
      * @return 到期卡片数
      */
     public int countDue(long userId, Instant now) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM word_learning_progress "
-                + "WHERE user_id=? AND card_type='EN_ZH' AND due_at<=?", Integer.class, userId, dbTime(now));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM word_learning_progress p "
+                + "WHERE p.user_id=? AND p.card_type='EN_ZH' AND p.due_at<=? AND " + ACTIVE_BOOK_WORD,
+                Integer.class, userId, dbTime(now));
     }
 
     /**
@@ -180,8 +189,8 @@ public class StudyMapper {
      * @return 下次到期时间，没有未到期卡片时返回 null
      */
     public Instant nextDue(long userId, Instant now) {
-        LocalDateTime value = jdbc.query("SELECT MIN(due_at) FROM word_learning_progress "
-                        + "WHERE user_id=? AND card_type='EN_ZH' AND due_at>?",
+        LocalDateTime value = jdbc.query("SELECT MIN(p.due_at) FROM word_learning_progress p "
+                        + "WHERE p.user_id=? AND p.card_type='EN_ZH' AND p.due_at>? AND " + ACTIVE_BOOK_WORD,
                 rs -> rs.next() ? rs.getObject(1, LocalDateTime.class) : null,
                 userId, dbTime(now));
         return value == null ? null : value.toInstant(ZoneOffset.UTC);
@@ -198,7 +207,7 @@ public class StudyMapper {
         return jdbc.query("SELECT d.id AS word_id,d.word,d.meaning,d.phonetic,d.example,"
                 + "d.example_translation,d.image_url,p.state,p.due_at,p.version "
                 + "FROM word_learning_progress p JOIN word_dictionary d ON d.id=p.word_id "
-                + "WHERE p.user_id=? AND p.card_type='EN_ZH' AND p.due_at<=? "
+                + "WHERE p.user_id=? AND p.card_type='EN_ZH' AND p.due_at<=? AND " + ACTIVE_BOOK_WORD + " "
                 + "ORDER BY p.due_at,p.id LIMIT ?",
                 (rs, rowNum) -> queueCard(rs, false), userId, dbTime(now), limit);
     }
@@ -465,6 +474,7 @@ public class StudyMapper {
      */
     public List<FamiliarityRow> familiarityRows(long userId, Long bookId) {
         String sql = "SELECT p.word_id,d.word,d.meaning,p.state,p.card_json,p.due_at,p.lapse_count,"
+                + ACTIVE_BOOK_WORD + " AS in_study_plan,"
                 + "(SELECT r.rating FROM word_review_record r WHERE r.progress_id=p.id "
                 + "ORDER BY r.id DESC LIMIT 1) AS last_rating "
                 + "FROM word_learning_progress p JOIN word_dictionary d ON d.id=p.word_id "
@@ -477,7 +487,8 @@ public class StudyMapper {
         return jdbc.query(sql, (rs, rowNum) -> new FamiliarityRow(
                 rs.getLong("word_id"), rs.getString("word"), rs.getString("meaning"),
                 rs.getString("state"), rs.getString("card_json"), utc(rs, "due_at"),
-                rs.getInt("lapse_count"), rs.getObject("last_rating", Integer.class)),
+                rs.getInt("lapse_count"), rs.getObject("last_rating", Integer.class),
+                rs.getBoolean("in_study_plan")),
                 bookId == null ? new Object[]{userId} : new Object[]{userId, bookId});
     }
 
