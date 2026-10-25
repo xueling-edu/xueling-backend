@@ -1,0 +1,27 @@
+# ============================================================
+# 主站后端 · 本地配置模板
+#
+# 用法：复制为 application-local.yml 后填入真实值。
+#   cp application-local.yml.example application-local.yml
+#
+# 该文件只用于本地开发；生产环境请改用环境变量注入（见 Docker 部署文档）。
+# application-local.yml 已被 .gitignore 忽略、被 pom.xml 排除打包，
+# 但模板本身会提交到仓库，所以这里只能放占位符。
+# ============================================================
+
+# ---- JWT 密钥（Base64 编码）----
+# 生成方式：openssl rand -base64 32
+XUELING_JWT_ACCESS_SECRET_BASE64: '把-32-字节随机数的-base64-填这里'
+XUELING_JWT_REFRESH_SECRET_BASE64: '另一个-32-字节随机数的-base64'
+
+spring:
+  datasource:
+    username: your_mysql_username
+    password: your_mysql_password
+    druid:
+      stat-view-servlet:
+        login-username: druid
+        login-password: your_druid_password
+  data:
+    redis:
+      password: your_redis_password

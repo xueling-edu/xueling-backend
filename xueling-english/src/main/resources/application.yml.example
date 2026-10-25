@@ -1,6 +1,8 @@
-# 复制为 application.yml 后填写 spring.datasource 的数据库账号密码。
-# application.yml 已被 Git 忽略，请勿在此模板中填写真实凭据。
+# 复制为 application.yml；该文件会打包进 jar，请保持所有凭据为环境变量占位符。
+# 本地凭据写在已忽略的 application-local.yml，生产凭据由环境变量注入。
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   main:
     allow-bean-definition-overriding: true
   ai:
@@ -20,9 +22,8 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/xueling_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
-    # 在本地 application.yml 中填写实际账号密码，勿将凭据提交到仓库。
-    username: your_mysql_username
-    password: your_mysql_password
+    username: ${DB_USERNAME:xueling_user}
+    password: ${DB_PASSWORD:}
 
     # 2. Druid 核心配置
     druid:
@@ -90,7 +91,7 @@ spring:
 
   data:
     redis:
-      password: ${XUELING_REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       database: 0
       timeout: 5000ms
       sentinel:
@@ -181,7 +182,16 @@ feign:
 #   1. 复制本文件为同目录下的 application.yml
 #      Windows: copy application.yml.example application.yml
 #      macOS/Linux: cp application.yml.example application.yml
-#   2. 在 application.yml 的 spring.datasource 中填入真实的数据库账号密码
-#      Redis 密码在本地 application.yml 中填写，模板使用 XUELING_REDIS_PASSWORD 环境变量
+#   2. 复制 application-local.yml.example 为 application-local.yml 并填写本地凭据
+#      生产环境通过 DB_PASSWORD、REDIS_PASSWORD 等环境变量注入
 #   3. application.yml 已被 .gitignore 忽略，不会提交到仓库
 # ============================================================
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+    import:
+      - optional:file:./src/main/resources/application-local.yml
+      - optional:file:./xueling-english/src/main/resources/application-local.yml

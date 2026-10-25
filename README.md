@@ -78,13 +78,17 @@ cd 学灵
 创建 MySQL 数据库 `xueling_db`。
 
 3. **配置文件**
-复制 `xueling-english/src/main/resources/application.yml.example` 为同目录下的 `application.yml`，按需填写数据库、Redis 和其他服务配置。`application.yml` 是本地配置，已被 Git 忽略；提交配置变更时请修改模板文件。
+复制两个模板：`application.yml.example` 作为不含凭据的基础配置，
+`application-local.yml.example` 作为仅供本地使用的凭据配置。
+实际的 `application.yml` 会打包进 jar，不能写真实密码或密钥；
+`application-local.yml` 已被 Git 忽略，打包时也会排除。
 
 ```bash
 cp xueling-english/src/main/resources/application.yml.example xueling-english/src/main/resources/application.yml
+cp xueling-english/src/main/resources/application-local.yml.example xueling-english/src/main/resources/application-local.yml
 ```
 
-Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。首次运行还需配置模板中引用的 API 密钥等环境变量。
+Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。填好本地凭据后，首次运行还需配置模板中引用的 API 密钥等环境变量。
 
 认证服务还必须提供两个互不相同的 JWT 签名密钥：`XUELING_JWT_ACCESS_SECRET_BASE64` 和
 `XUELING_JWT_REFRESH_SECRET_BASE64`。每个值是至少 32 个随机字节的 Base64 编码；缺失、过短或相同会使应用启动失败。
@@ -121,6 +125,15 @@ mvnw.cmd clean install
 cd xueling-english
 ../mvnw spring-boot:run
 ```
+
+本地凭据放在 `xueling-english/src/main/resources/application-local.yml`。默认的 `local`
+profile 会从源码目录导入它，适用于从后端仓库根目录或 `xueling-english` 目录启动；
+打包时仍会排除该文件。在其他工作目录运行 jar 时，用
+`--spring.config.additional-location=optional:file:/本地配置目录/` 指定配置目录。
+
+当前配置还要求运行环境提供 `DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、`ZHIPU_API_KEY`、
+`aliyun_oss_id`、`aliyun_oss_key`、`email_username` 和 `email_key`。
+缺少这些值时，相关 Bean 创建会失败，应用无法完成启动。
 
 ## 📋 功能特性
 
