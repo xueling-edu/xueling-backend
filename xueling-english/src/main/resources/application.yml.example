@@ -90,16 +90,21 @@ spring:
 
   data:
     redis:
-      database: 1
-      host: localhost
-      port: 6379
-      # Redis 设置了 requirepass 时，在本地 application.yml 中增加 password 配置
+      password: ${XUELING_REDIS_PASSWORD}
+      database: 0
+      timeout: 5000ms
+      sentinel:
+        master: mymaster
+        nodes:
+          - 47.106.207.21:26379
+          - 47.106.207.21:26380
+          - 47.106.207.21:26381
       lettuce:
         pool:
           max-active: 8
           max-idle: 8
           min-idle: 0
-          max-wait: 100 # 连接等待时间（毫秒）
+          max-wait: 3000ms
 # Jackson配置
   jackson:
     default-property-inclusion: NON_NULL # 忽略NULL属性
@@ -177,6 +182,6 @@ feign:
 #      Windows: copy application.yml.example application.yml
 #      macOS/Linux: cp application.yml.example application.yml
 #   2. 在 application.yml 的 spring.datasource 中填入真实的数据库账号密码
-#      Redis 设置了 requirepass 时，在 spring.data.redis 中增加 password
+#      Redis 密码在本地 application.yml 中填写，模板使用 XUELING_REDIS_PASSWORD 环境变量
 #   3. application.yml 已被 .gitignore 忽略，不会提交到仓库
 # ============================================================
