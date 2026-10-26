@@ -22,8 +22,7 @@ target/
 *.properties.local
 *.yml.local
 *.yaml.local
-# 后端本地配置（提交 application.yml.example 模板）
-xueling-english/src/main/resources/application.yml
+# application.yml is tracked; application-local.yml contains local secrets.
 # 本地凭据配置：含真实密码/密钥，绝不入库
 xueling-english/src/main/resources/application-local.yml
 *.env.*

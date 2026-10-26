@@ -78,13 +78,12 @@ cd 学灵
 创建 MySQL 数据库 `xueling_db`。
 
 3. **配置文件**
-复制两个模板：`application.yml.example` 作为不含凭据的基础配置，
-`application-local.yml.example` 作为仅供本地使用的凭据配置。
-实际的 `application.yml` 会打包进 jar，不能写真实密码或密钥；
+仓库已包含不含凭据的基础配置 `application.yml`。
+本地开发时复制 `application-local.yml.example`，并在生成的文件中填写本地凭据。
+`application.yml` 会打包进 jar，不能写真实密码或密钥；
 `application-local.yml` 已被 Git 忽略，打包时也会排除。
 
 ```bash
-cp xueling-english/src/main/resources/application.yml.example xueling-english/src/main/resources/application.yml
 cp xueling-english/src/main/resources/application-local.yml.example xueling-english/src/main/resources/application-local.yml
 ```
 

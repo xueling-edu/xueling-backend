@@ -1,7 +1,16 @@
-# 复制为 application.yml；该文件会打包进 jar，请保持所有凭据为环境变量占位符。
-# 本地凭据写在已忽略的 application-local.yml，生产凭据由环境变量注入。
+# ============================================================
+# 凭据分离说明
+# 本文件只放「不含凭据」的配置。敏感值一律写成 ${VAR:} 占位符，
+# 运行时从以下两处注入，二者都不进 Git、不进 jar、不进镜像：
+#   本地开发 → application-local.yml（打包时已被 Maven 排除）
+#   生产环境 → 环境变量 / Docker env_file
+# 切勿把真实密码或密钥写回本文件：它会随 jar 打进镜像层。
+# ============================================================
+
 spring:
   profiles:
+    # 本地默认 local（自动加载 application-local.yml）
+    # 生产必须显式设置 SPRING_PROFILES_ACTIVE=prod，改为纯环境变量注入
     active: ${SPRING_PROFILES_ACTIVE:local}
   main:
     allow-bean-definition-overriding: true
@@ -21,7 +30,9 @@ spring:
     # 1. 基本连接信息
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/xueling_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    url: jdbc:mysql://117.72.222.3:3306/xueling_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true
+    # 凭据不落盘：本地开发放 application-local.yml，生产用环境变量
+    # 注意：全局环境变量 mysql_username / mysql_password 会被同机其他项目覆盖，不要依赖
     username: ${DB_USERNAME:xueling_user}
     password: ${DB_PASSWORD:}
 
@@ -33,7 +44,11 @@ spring:
       max-active: 20
       # 监控页面配置（核心）
       stat-view-servlet:
-        enabled: false # 生产环境不对外提供 Druid 管理页面
+        enabled: false
+        url-pattern: /druid/*
+        # Druid 监控页凭据：生产环境建议直接 enabled: false，或设强密码
+        login-username: ${DRUID_USERNAME:druid}
+        login-password: ${DRUID_PASSWORD:}
         reset-enable: false
       # web统计过滤器
       web-stat-filter:
@@ -122,13 +137,6 @@ spring:
 server:
   port: 9012
 
-# 管理员用户 ID，多个 ID 用英文逗号分隔；默认无管理员。
-xueling:
-  admin:
-    user-ids: ${XUELING_ADMIN_IDS:}
-  security:
-    secure-cookies: true # 本地 HTTP 开发时可在未跟踪的 application.yml 中设为 false
-
 #阿里云OSS配置
 aliyun:
   oss:
@@ -174,18 +182,6 @@ feign:
       default:  # 全局默认配置
         connect-timeout: 5000  # 连接超时（毫秒）
         read-timeout: 10000    # 读取超时（毫秒）
-
-# ============================================================
-# 本地开发配置模板
-#
-# 使用方式：
-#   1. 复制本文件为同目录下的 application.yml
-#      Windows: copy application.yml.example application.yml
-#      macOS/Linux: cp application.yml.example application.yml
-#   2. 复制 application-local.yml.example 为 application-local.yml 并填写本地凭据
-#      生产环境通过 DB_PASSWORD、REDIS_PASSWORD 等环境变量注入
-#   3. application.yml 已被 .gitignore 忽略，不会提交到仓库
-# ============================================================
 
 ---
 spring:

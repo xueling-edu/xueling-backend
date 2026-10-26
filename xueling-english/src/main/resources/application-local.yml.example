@@ -20,6 +20,7 @@ spring:
     password: your_mysql_password
     druid:
       stat-view-servlet:
+        enabled: true
         login-username: druid
         login-password: your_druid_password
   data:
