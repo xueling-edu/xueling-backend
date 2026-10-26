@@ -18,7 +18,6 @@
     <modules>
         <module>xueling-common</module>
         <module>xueling-english</module>
-        <module>xueling-admin</module>
     </modules>
 
     <url/>
@@ -208,8 +207,8 @@
 
     <!--
       说明：spring-boot-maven-plugin（repackage）只在可执行模块中声明，
-      不能放在父 pom 的 <plugins> 里，否则 xueling-common / xueling-admin
-      这类没有 main 类的库模块会因 “Unable to find main class” 打包失败。
+      不能放在父 pom 的 <plugins> 里，否则没有 main 类的 xueling-common
+      会因 “Unable to find main class” 打包失败。
       当前仅 xueling-english 是可执行模块，见 xueling-english/pom.xml。
     -->
 

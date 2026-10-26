@@ -19,7 +19,6 @@
 │   └── src/main/java/com/hope/xueling/english/
 │       ├── vocab/           # 词书、词典、复习及翻译
 │       └── reading/         # 阅读文章及测试
-├── xueling-admin/           # 旧文章上传代码模块（不再由用户服务加载）
 ├── pom.xml                  # 父工程 Maven 配置
 ├── mvnw                     # Maven Wrapper 脚本 (Unix)
 └── mvnw.cmd                 # Maven Wrapper 脚本 (Windows)
@@ -98,8 +97,9 @@ Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。按照模
 [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 ```
 
-用户服务不再加载旧 `xueling-admin` 文章管理模块，也不再提供反馈管理接口。
+旧 `xueling-admin` 模块已从父工程清理，代码可从 Git 历史中找回；用户服务不提供旧版文章上传和反馈管理接口。
 新的独立管理服务位于同级目录 `xueling-admin-backend`，其管理员白名单与签名密钥独立配置。
+旧模块的 AI 自动生成文章上传逻辑尚未迁入独立管理服务；目前管理端使用文章草稿、编辑和发布流程。
 管理端文章发布状态上线时，先执行该仓库的数据库迁移，再部署本用户服务的文章可见性过滤，最后启用管理端。
 
 新文章列表 `GET /read/article-summaries?categoryId=...` 只返回已发布文章的展示字段，不包含正文。
@@ -113,11 +113,14 @@ Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。按照模
 4. **构建项目**
 ```bash
 # Unix/Linux/Mac
-./mvnw clean install
+./mvnw clean package
 
 # Windows
-mvnw.cmd clean install
+mvnw.cmd clean package
 ```
+
+父工程会构建 `xueling-common` 和 `xueling-english`，可执行产物位于
+`xueling-english/target/xueling-english-0.0.1-SNAPSHOT.jar`。
 
 5. **运行项目**
 ```bash
@@ -131,9 +134,9 @@ profile 会从源码目录导入它，适用于从后端仓库根目录或 `xuel
 打包时仍会排除该文件。在其他工作目录运行 jar 时，用
 `--spring.config.additional-location=optional:file:/本地配置目录/` 指定配置目录。
 
-当前配置还要求运行环境提供 `DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、`ZHIPU_API_KEY`、
-`aliyun_oss_id`、`aliyun_oss_key`、`email_username` 和 `email_key`。
-缺少这些值时，相关 Bean 创建会失败，应用无法完成启动。
+本地 `application-local.yml` 还需填写 `DEEPSEEK_API_KEY`、`DOUBAO_API_KEY`、
+`ZHIPU_API_KEY`、`aliyun_oss_id`、`aliyun_oss_key`、`email_username` 和 `email_key`；
+生产部署通过环境变量提供这些值。缺少必需值时，相关 Bean 创建会失败。
 
 ## 📋 功能特性
 
