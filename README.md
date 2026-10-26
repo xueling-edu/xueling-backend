@@ -87,11 +87,12 @@ cd 学灵
 cp xueling-english/src/main/resources/application-local.yml.example xueling-english/src/main/resources/application-local.yml
 ```
 
-Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。填好本地凭据后，首次运行还需配置模板中引用的 API 密钥等环境变量。
+Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。按照模板填写数据库、Redis、JWT、AI、OSS 和邮件配置后，本地启动无需再设置电脑或 IDE 的环境变量。`application.yml` 中的 `${...}` 会读取导入的本地 YAML 属性；生产部署继续使用环境变量。
+若已有 `application-local.yml`，请对照新模板补齐缺少的字段，保留原有真实凭据，不要直接用模板覆盖。
 
 认证服务还必须提供两个互不相同的 JWT 签名密钥：`XUELING_JWT_ACCESS_SECRET_BASE64` 和
 `XUELING_JWT_REFRESH_SECRET_BASE64`。每个值是至少 32 个随机字节的 Base64 编码；缺失、过短或相同会使应用启动失败。
-可在 PowerShell 中分别运行两次以下命令生成，生成结果只放入本地环境或部署平台的密钥管理中：
+可在 PowerShell 中分别运行两次以下命令生成，生成结果只放入被 Git 忽略的 `application-local.yml` 或部署平台的密钥管理中：
 
 ```powershell
 [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
@@ -105,8 +106,8 @@ Windows PowerShell 可使用 `Copy-Item` 执行同样的复制操作。填好本
 用户端通过 `GET /read/articles/{articleId}` 按 ID 加载正文；会员文章须有有效会员资格，
 文章翻译和阅读操作也执行同样的发布状态与会员检查。上线时需同步部署调用新详情接口的用户前端。
 旧 `GET /read/articles?categoryId=...` 暂时保留，只返回当前用户有权阅读的已发布正文，供旧版用户前端在部署过渡期使用。
-刷新令牌 Cookie 默认带 `Secure`，线上必须使用 HTTPS；仅本地 HTTP 开发可在被 Git 忽略的
-`application.yml` 中设置 `xueling.security.secure-cookies: false`。Druid 页面在配置模板中默认关闭。
+刷新令牌 Cookie 默认带 `Secure`，线上必须使用 HTTPS；本地 HTTP 开发可在被 Git 忽略的
+`application-local.yml` 中设置 `xueling.security.secure-cookies: false`。Druid 页面在基础配置中默认关闭。
 旧版写在源码中的 JWT 密钥已经公开，部署前必须更换；若历史提交中有真实的数据库或服务商凭据，也应到对应服务商处撤销并重发。
 
 4. **构建项目**

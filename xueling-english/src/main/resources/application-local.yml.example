@@ -1,28 +1,54 @@
-# ============================================================
-# 主站后端 · 本地配置模板
-#
-# 用法：复制为 application-local.yml 后填入真实值。
-#   cp application-local.yml.example application-local.yml
-#
-# 该文件只用于本地开发；生产环境请改用环境变量注入（见 Docker 部署文档）。
-# application-local.yml 已被 .gitignore 忽略、被 pom.xml 排除打包，
-# 但模板本身会提交到仓库，所以这里只能放占位符。
-# ============================================================
+# 主站后端本地配置模板
+# 复制为同目录的 application-local.yml，填写真实值后直接启动，无需在电脑或 IDE 中配置环境变量。
+# application.yml 默认启用 local profile，并从源码路径导入本文件。
+# 本文件只用于本地开发：Git 忽略 application-local.yml，Maven 也不会将其打包进 jar。
+# 模板会提交到 Git，因此下方只能保留示例值；不要把真实密钥写进此模板。
 
-# ---- JWT 密钥（Base64 编码）----
-# 生成方式：openssl rand -base64 32
-XUELING_JWT_ACCESS_SECRET_BASE64: '把-32-字节随机数的-base64-填这里'
-XUELING_JWT_REFRESH_SECRET_BASE64: '另一个-32-字节随机数的-base64'
+# 与 application.yml 中的 ${...} 占位符同名。写在 YAML 中也是 Spring 配置属性，
+# 不需要执行 setx、export 或在 IDE 的环境变量栏中重复填写。
+# 两个 JWT 密钥必须分别由至少 32 个随机字节生成，并进行 Base64 编码。
+# 生成示例：openssl rand -base64 32（执行两次）。
+XUELING_JWT_ACCESS_SECRET_BASE64: 'REPLACE_WITH_ACCESS_SECRET_BASE64'
+XUELING_JWT_REFRESH_SECRET_BASE64: 'REPLACE_WITH_DIFFERENT_REFRESH_SECRET_BASE64'
+
+# DeepSeek 同时供 Spring AI 和 llm.deepseek 使用，只需填写一次。
+DEEPSEEK_API_KEY: 'REPLACE_WITH_DEEPSEEK_API_KEY'
+DOUBAO_API_KEY: 'REPLACE_WITH_DOUBAO_API_KEY'
+ZHIPU_API_KEY: 'REPLACE_WITH_ZHIPU_API_KEY'
+
+DB_USERNAME: 'REPLACE_WITH_MYSQL_USERNAME'
+DB_PASSWORD: 'REPLACE_WITH_MYSQL_PASSWORD'
+DRUID_USERNAME: 'druid'
+DRUID_PASSWORD: 'REPLACE_WITH_DRUID_PASSWORD'
+REDIS_PASSWORD: 'REPLACE_WITH_REDIS_PASSWORD'
+
+aliyun_oss_id: 'REPLACE_WITH_ALIYUN_OSS_ACCESS_KEY_ID'
+aliyun_oss_key: 'REPLACE_WITH_ALIYUN_OSS_ACCESS_KEY_SECRET'
+email_username: 'your_email@qq.com'
+email_key: 'REPLACE_WITH_SMTP_AUTHORIZATION_CODE'
+
+# 可选：多个主站管理员用户 ID 用英文逗号分隔；留空表示不授权管理员。
+XUELING_ADMIN_IDS: ''
 
 spring:
   datasource:
-    username: your_mysql_username
-    password: your_mysql_password
+    # 当前项目使用远程 MySQL；如需本机数据库，请改为 127.0.0.1。
+    url: 'jdbc:mysql://117.72.222.3:3306/xueling_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true'
     druid:
       stat-view-servlet:
-        enabled: true
-        login-username: druid
-        login-password: your_druid_password
+        # 填好上面的 Druid 密码后，才按需设为 true。
+        enabled: false
   data:
     redis:
-      password: your_redis_password
+      # 远程 Redis 为一主二从、三个 Sentinel；密码填写在 REDIS_PASSWORD。
+      sentinel:
+        master: mymaster
+        nodes:
+          - 47.106.207.21:26379
+          - 47.106.207.21:26380
+          - 47.106.207.21:26381
+
+xueling:
+  security:
+    # 本地使用 HTTP 时设为 false；生产 HTTPS 的设置仍由生产环境控制。
+    secure-cookies: false
