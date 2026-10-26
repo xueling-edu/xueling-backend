@@ -122,6 +122,14 @@ mvnw.cmd clean package
 父工程会构建 `xueling-common` 和 `xueling-english`，可执行产物位于
 `xueling-english/target/xueling-english-0.0.1-SNAPSHOT.jar`。
 
+若在 Docker 中直接从源码构建主站镜像，可在本仓库根目录运行：
+
+```bash
+docker build -f Dockerfile.multistage -t xueling-backend:1.0.0 .
+```
+
+`.dockerignore` 会排除未提交的本地凭据和构建产物。
+
 5. **运行项目**
 ```bash
 # 运行英语学习模块

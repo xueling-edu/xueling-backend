@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+# ============================================================
+# 可选路线：多阶段构建（在服务器上直接从源码构建，无需本地装 Maven）
+#
+# 在 xueling-backend 项目根目录执行：
+#   docker build -f Dockerfile.multistage -t xueling-backend:1.0.0 .
+#
+# 本仓库的 .dockerignore 会排除本地凭据和构建产物。
+#
+# 注意：Maven 首次构建要下载全部依赖（几百 MB），
+#       内存较小的服务器建议先在本地构建 jar，再用轻量运行镜像部署。
+# ============================================================
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+
+# ① 先只拷 pom —— 依赖不变时这一层直接命中缓存，改源码不会重新下依赖
+COPY pom.xml .
+COPY xueling-common/pom.xml  xueling-common/
+COPY xueling-english/pom.xml xueling-english/
+RUN mvn -B -q dependency:go-offline -DskipTests || true
+
+# ② 再拷源码
+COPY . .
+
+# ③ 构建启动模块及其依赖，跳过测试和 javadoc
+RUN mvn -B -q clean package -DskipTests -Dmaven.javadoc.skip=true \
+        -pl xueling-english -am
+
+# ============================================================
+FROM eclipse-temurin:21-jre-jammy
+
+ENV TZ=Asia/Shanghai \
+    LANG=C.UTF-8 \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC -Duser.timezone=Asia/Shanghai"
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+    && groupadd -g 10001 app \
+    && useradd -u 10001 -g app -d /app -s /sbin/nologin app
+
+WORKDIR /app
+RUN mkdir -p /app/logs && chown -R app:app /app
+
+COPY --from=build --chown=app:app \
+     /build/xueling-english/target/xueling-english-0.0.1-SNAPSHOT.jar app.jar
+
+USER app
+EXPOSE 9012
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/9012' || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
