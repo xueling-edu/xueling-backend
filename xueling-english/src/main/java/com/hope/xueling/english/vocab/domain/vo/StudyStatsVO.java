@@ -35,4 +35,8 @@ public class StudyStatsVO {
      * 到期卡回忆率，无样本时为 null
      */
     private Double dueRecallRate;
+    /**
+     * 今天是否已自动打卡
+     */
+    private boolean checkedIn;
 }

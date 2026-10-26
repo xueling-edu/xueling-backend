@@ -26,7 +26,7 @@ import java.util.Comparator;
 /**
  * 学习计划服务实现：以“用户 × 单词 × 英文到中文”的卡片为单位，负责今日队列、评分排程、学习统计与设置。
  * <p>关键规则：到期卡优先于新词；到期数达到 30 时暂停引入新词；同一用户的写入通过锁定设置行串行化；
- * 评分按 requestId 幂等、按卡片版本号做并发校验；当日到期清零且新词额度用尽时自动打卡。</p>
+ * 评分按 requestId 幂等、按卡片版本号做并发校验；当前可学队列清空后自动打卡。</p>
  * @author 谢光湘
  * @since 2026/10/24
  */
@@ -94,6 +94,17 @@ public class StudyServiceImpl implements IStudyService {
         return clock.instant().truncatedTo(ChronoUnit.MILLIS);
     }
 
+    /** 完成当前可学任务后打卡；今天稍后到期的卡片不阻止打卡。 */
+    private boolean checkInIfComplete(long userId, StudySettingsVO settings, Instant current,
+                                      DayWindow day, int dueCount, int introduced, boolean studiedToday) {
+        if (studyMapper.hasCheckIn(userId, day.date())) return true;
+        if (!studiedToday || dueCount > 0) return false;
+        int remaining = Math.max(0, settings.getDailyNewLimit() - introduced);
+        if (remaining > 0 && !studyMapper.newCards(userId, 1).isEmpty()) return false;
+        studyMapper.insertCheckIn(userId, day.date(), current);
+        return true;
+    }
+
     /**
      * 组装今日学习数据：计算到期数与剩余新词额度，到期卡优先，额度用尽或到期过多时不再给新词
      * @param userId 用户 ID
@@ -117,8 +128,10 @@ public class StudyServiceImpl implements IStudyService {
         today.setDueCount(dueCount);
         today.setNewRemaining(remaining);
         today.setTodayNew(introduced);
-        today.setTodayReviewed(studyMapper.countTodayReviews(userId, day.start(), day.end()));
-        today.setCheckedIn(studyMapper.hasCheckIn(userId, day.date()));
+        int reviewedToday = studyMapper.countTodayReviews(userId, day.start(), day.end());
+        today.setTodayReviewed(reviewedToday);
+        today.setCheckedIn(checkInIfComplete(userId, settings, now, day, dueCount, introduced,
+                reviewedToday > 0));
         today.setNextDueAt(studyMapper.nextDue(userId, now));
         today.setCards(cards);
         return today;
@@ -206,17 +219,9 @@ public class StudyServiceImpl implements IStudyService {
                 version == 0 ? null : progress.dueAt(), scheduled.dueAt(), request.getElapsedMs(),
                 reviewScheduler.version(), settings.getDesiredRetention(), scheduled.state(),
                 versionAfter, request.getRequestId());
-        // 今天稍后还会到期的短时重学卡完成后，才算完成当天任务。
-        if (studyMapper.countDue(userId, reviewedAt) == 0) {
-            int introducedToday = studyMapper.countIntroduced(userId, day.date());
-            int remaining = Math.max(0, settings.getDailyNewLimit() - introducedToday);
-            if (remaining == 0 || studyMapper.newCards(userId, 1).isEmpty()) {
-                Instant nextDue = studyMapper.nextDue(userId, reviewedAt);
-                if (nextDue == null || !nextDue.isBefore(day.end())) {
-                    studyMapper.insertCheckIn(userId, day.date(), reviewedAt);
-                }
-            }
-        }
+        checkInIfComplete(userId, settings, reviewedAt, day,
+                studyMapper.countDue(userId, reviewedAt),
+                studyMapper.countIntroduced(userId, day.date()), true);
         return new StudyReviewResultVO(String.valueOf(wordId), scheduled.state(), scheduled.dueAt(), versionAfter);
     }
 
@@ -230,8 +235,11 @@ public class StudyServiceImpl implements IStudyService {
     @Transactional
     public StudyCalendarVO calendar(long userId, String month) {
         studyMapper.ensureSettings(userId);
-        ZoneId zone = ZoneId.of(studyMapper.settings(userId, false).getTimeZone());
-        LocalDate today = now().atZone(zone).toLocalDate();
+        StudySettingsVO settings = studyMapper.settings(userId, false);
+        ZoneId zone = ZoneId.of(settings.getTimeZone());
+        Instant currentTime = now();
+        DayWindow day = dayWindow(settings, currentTime);
+        LocalDate today = day.date();
         YearMonth selected;
         try {
             selected = month == null ? YearMonth.from(today) : YearMonth.parse(month);
@@ -241,6 +249,9 @@ public class StudyServiceImpl implements IStudyService {
         if (selected.isAfter(YearMonth.from(today)) || selected.isBefore(YearMonth.from(today).minusYears(10))) {
             throw new ValidationException("月份超出可查看范围");
         }
+        checkInIfComplete(userId, settings, currentTime, day,
+                studyMapper.countDue(userId, currentTime), studyMapper.countIntroduced(userId, today),
+                studyMapper.countTodayReviews(userId, day.start(), day.end()) > 0);
         LocalDate first = selected.atDay(1);
         LocalDate after = selected.plusMonths(1).atDay(1);
         Map<LocalDate, DayAggregate> aggregates = new HashMap<>();
@@ -289,10 +300,13 @@ public class StudyServiceImpl implements IStudyService {
         DayWindow day = dayWindow(settings, now);
         int attempts = studyMapper.countDueAttempts(userId, day.start(), day.end());
         int successes = studyMapper.countDueSuccesses(userId, day.start(), day.end());
-        return new StudyStatsVO(studyMapper.countTodayReviews(userId, day.start(), day.end()),
-                studyMapper.countIntroduced(userId, day.date()), studyMapper.countLearned(userId),
-                studyMapper.countDue(userId, now), attempts,
-                attempts == 0 ? null : (double) successes / attempts);
+        int reviewedToday = studyMapper.countTodayReviews(userId, day.start(), day.end());
+        int introduced = studyMapper.countIntroduced(userId, day.date());
+        int dueCount = studyMapper.countDue(userId, now);
+        boolean checkedIn = checkInIfComplete(userId, settings, now, day, dueCount, introduced,
+                reviewedToday > 0);
+        return new StudyStatsVO(reviewedToday, introduced, studyMapper.countLearned(userId),
+                dueCount, attempts, attempts == 0 ? null : (double) successes / attempts, checkedIn);
     }
 
     private static class DayAggregate {

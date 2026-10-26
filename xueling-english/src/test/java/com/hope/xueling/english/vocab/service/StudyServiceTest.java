@@ -31,6 +31,7 @@ class StudyServiceTest {
         PreviousReview previous;
         boolean eligible = true;
         int dueCount;
+        int todayReviewCount;
         int introduced;
         LocalDate introducedDate;
         int dueQueries;
@@ -81,7 +82,7 @@ class StudyServiceTest {
         @Override public int countTodayReviews(long userId, Instant start, Instant end) {
             dayStart = start;
             dayEnd = end;
-            return 0;
+            return todayReviewCount;
         }
         @Override public int countDueAttempts(long userId, Instant start, Instant end) { return 0; }
         @Override public int countDueSuccesses(long userId, Instant start, Instant end) { return 0; }
@@ -211,10 +212,13 @@ class StudyServiceTest {
         service.submitReview(USER_ID, review());
 
         assertEquals(0, mapper.insertedCheckIns);
+        mapper.todayReviewCount = 1;
+        assertFalse(service.today(USER_ID).isCheckedIn());
+        assertEquals(0, mapper.insertedCheckIns);
     }
 
     @Test
-    void aRatingWaitsForAnotherCardDueLaterTodayBeforeCheckingIn() {
+    void aRatingChecksInEvenWhenAnotherCardIsDueLaterToday() {
         Instant instant = Instant.parse("2026-10-20T12:00:00Z");
         mapper.settings = new StudySettingsVO("Asia/Shanghai", 1, 0.9);
         mapper.nextDue = instant.plusSeconds(600);
@@ -223,7 +227,60 @@ class StudyServiceTest {
 
         fixedService.submitReview(USER_ID, review());
 
+        assertEquals(1, mapper.insertedCheckIns);
+        assertEquals(List.of(LocalDate.of(2026, 10, 20)), mapper.checkedDates);
+    }
+
+    @Test
+    void todayReconcilesAnEarlierRatingWhenCurrentQueueIsEmpty() {
+        mapper.settings = new StudySettingsVO("Asia/Shanghai", 15, 0.9);
+        mapper.introduced = 15;
+        mapper.todayReviewCount = 44;
+        mapper.nextDue = Instant.parse("2026-10-20T12:10:00Z");
+
+        var today = service.today(USER_ID);
+
+        assertTrue(today.isCheckedIn());
+        assertEquals(1, mapper.insertedCheckIns);
+        assertEquals(mapper.nextDue, today.getNextDueAt());
+        assertTrue(service.today(USER_ID).isCheckedIn());
+        assertEquals(1, mapper.insertedCheckIns);
+    }
+
+    @Test
+    void emptyTaskDayDoesNotCheckInWithoutAReview() {
+        mapper.settings = new StudySettingsVO("Asia/Shanghai", 0, 0.9);
+
+        assertFalse(service.today(USER_ID).isCheckedIn());
         assertEquals(0, mapper.insertedCheckIns);
+    }
+
+    @Test
+    void statsReconcilesCheckInForDashboard() {
+        mapper.settings = new StudySettingsVO("Asia/Shanghai", 15, 0.9);
+        mapper.introduced = 15;
+        mapper.todayReviewCount = 44;
+
+        var stats = service.stats(USER_ID);
+
+        assertTrue(stats.isCheckedIn());
+        assertEquals(1, mapper.insertedCheckIns);
+    }
+
+    @Test
+    void calendarReconcilesCurrentDayBeforeReportingStreak() {
+        mapper.settings = new StudySettingsVO("Asia/Shanghai", 15, 0.9);
+        mapper.introduced = 15;
+        mapper.todayReviewCount = 44;
+        Instant instant = Instant.parse("2026-10-20T12:00:00Z");
+        var fixedService = new StudyServiceImpl(mapper, new FsrsReviewScheduler(),
+                Clock.fixed(instant, ZoneOffset.UTC));
+
+        var calendar = fixedService.calendar(USER_ID, "2026-10");
+
+        assertTrue(calendar.checkedInToday());
+        assertEquals(1, calendar.currentStreak());
+        assertEquals(1, mapper.insertedCheckIns);
     }
 
     @Test
