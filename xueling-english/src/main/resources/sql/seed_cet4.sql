@@ -1,6 +1,6 @@
 -- 可在导入或更新 ECDICT 后重复执行；只引用词典，不复制单词。
-INSERT INTO `word_book` (`user_id`, `book_type`, `system_key`, `name`, `color`, `icon`, `word_count`)
-VALUES (NULL, 'SYSTEM', 'CET4', '四级核心词', 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', '📘', 0)
+INSERT INTO `word_book` (`user_id`, `book_type`, `system_key`, `name`, `color`, `icon`, `word_count`, `publish_status`)
+VALUES (NULL, 'SYSTEM', 'CET4', '四级核心词', 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', '📘', 0, 'PUBLISHED')
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
 INSERT INTO `word_book_dictionary_relation` (`word_book_id`, `word_id`, `sort_order`)
 SELECT b.id, d.id, ROW_NUMBER() OVER (ORDER BY CASE WHEN d.frq IS NULL OR d.frq = 0 THEN 1 ELSE 0 END, d.frq, d.id)

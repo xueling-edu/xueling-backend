@@ -80,7 +80,7 @@ public class StudyMapper {
             + "JOIN word_book b ON b.id=s.book_id "
             + "JOIN word_book_dictionary_relation rel ON rel.word_book_id=b.id "
             + "WHERE s.user_id=p.user_id AND s.enabled=1 AND b.is_deleted=0 "
-            + "AND (b.book_type='SYSTEM' OR b.user_id=s.user_id) AND rel.word_id=p.word_id)";
+            + "AND ((b.book_type='SYSTEM' AND b.publish_status='PUBLISHED') OR b.user_id=s.user_id) AND rel.word_id=p.word_id)";
 
     /**
      * 把结果集中的 UTC 时间列还原为 Instant
@@ -131,7 +131,7 @@ public class StudyMapper {
     public void ensureSettings(long userId) {
         jdbc.update("INSERT IGNORE INTO user_study_settings (user_id) VALUES (?)", userId);
         jdbc.update("INSERT IGNORE INTO user_study_book (user_id, book_id) "
-                + "SELECT ?, id FROM word_book WHERE system_key = 'CET4' AND is_deleted = 0", userId);
+                + "SELECT ?, id FROM word_book WHERE system_key = 'CET4' AND is_deleted = 0 AND publish_status='PUBLISHED'", userId);
     }
 
     /**
@@ -143,7 +143,7 @@ public class StudyMapper {
         jdbc.update("INSERT INTO user_study_settings (user_id) VALUES (?) "
                 + "ON DUPLICATE KEY UPDATE user_id=user_id", userId);
         jdbc.update("INSERT IGNORE INTO user_study_book (user_id, book_id) "
-                + "SELECT ?, id FROM word_book WHERE system_key = 'CET4' AND is_deleted = 0", userId);
+                + "SELECT ?, id FROM word_book WHERE system_key = 'CET4' AND is_deleted = 0 AND publish_status='PUBLISHED'", userId);
     }
 
     /**
@@ -226,7 +226,7 @@ public class StudyMapper {
                 + "JOIN word_dictionary d ON d.id=r.word_id "
                 + "LEFT JOIN word_learning_progress p ON p.user_id=s.user_id AND p.word_id=d.id AND p.card_type='EN_ZH' "
                 + "WHERE s.user_id=? AND s.enabled=1 AND b.is_deleted=0 "
-                + "AND (b.book_type='SYSTEM' OR b.user_id=s.user_id) AND p.id IS NULL "
+                + "AND ((b.book_type='SYSTEM' AND b.publish_status='PUBLISHED') OR b.user_id=s.user_id) AND p.id IS NULL "
                 + "AND d.meaning IS NOT NULL AND d.meaning<>'' "
                 + "GROUP BY d.id ORDER BY MIN(s.priority),MIN(r.sort_order),d.id LIMIT ?",
                 (rs, rowNum) -> queueCard(rs, true), userId, limit);
@@ -349,7 +349,7 @@ public class StudyMapper {
                 + "JOIN word_book_dictionary_relation r ON r.word_book_id=b.id "
                 + "JOIN word_dictionary d ON d.id=r.word_id "
                 + "WHERE s.user_id=? AND s.enabled=1 AND b.is_deleted=0 "
-                + "AND (b.book_type='SYSTEM' OR b.user_id=s.user_id) AND r.word_id=? "
+                + "AND ((b.book_type='SYSTEM' AND b.publish_status='PUBLISHED') OR b.user_id=s.user_id) AND r.word_id=? "
                 + "AND d.meaning IS NOT NULL AND d.meaning<>''",
                 Integer.class, userId, wordId);
         return count != null && count > 0;
@@ -537,7 +537,7 @@ public class StudyMapper {
      */
     public boolean accessibleBook(long userId, long bookId) {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM word_book WHERE id=? AND is_deleted=0 "
-                + "AND (book_type='SYSTEM' OR user_id=?)", Integer.class, bookId, userId);
+                + "AND ((book_type='SYSTEM' AND publish_status='PUBLISHED') OR user_id=?)", Integer.class, bookId, userId);
         return count != null && count > 0;
     }
 

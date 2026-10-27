@@ -29,6 +29,8 @@ public class WordBook {
      * 词书类型：SYSTEM 系统词书、USER 用户自建词书
      */
     private String bookType;
+    /** 系统词书发布状态；用户词书为空。 */
+    private String publishStatus;
 
     /**
      * 系统词书标识，用户自建词书为空

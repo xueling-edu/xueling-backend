@@ -2,6 +2,7 @@ CREATE TABLE `word_book` (
                              `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                              `user_id` bigint unsigned DEFAULT NULL COMMENT '系统词书为空，个人词书为所属用户ID',
                              `book_type` varchar(12) NOT NULL DEFAULT 'USER' COMMENT 'SYSTEM或USER',
+                             `publish_status` varchar(16) DEFAULT NULL COMMENT '系统词书发布状态',
                              `system_key` varchar(40) DEFAULT NULL COMMENT '系统词书唯一标识',
                              `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '单词本名称',
                              `color` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '封面背景色',

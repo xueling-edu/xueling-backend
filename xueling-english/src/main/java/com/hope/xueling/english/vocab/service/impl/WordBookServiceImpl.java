@@ -106,7 +106,8 @@ public class WordBookServiceImpl implements IWordBookService {
         // 查询用户所有单词本
         QueryWrapper<WordBook> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("is_deleted", 0)
-                .and(q -> q.eq("user_id", userId).or().eq("book_type", "SYSTEM"))
+                .and(q -> q.eq("user_id", userId)
+                        .or(system -> system.eq("book_type", "SYSTEM").eq("publish_status", "PUBLISHED")))
                 .orderByAsc("book_type").orderByDesc("create_time");
         List<WordBook> wordBooks = wordBookMapper.selectList(queryWrapper);
         if (wordBooks.isEmpty()) {
@@ -310,6 +311,7 @@ public class WordBookServiceImpl implements IWordBookService {
     private WordBook getReadableWordBook(Long wordBookId, Long userId) {
         WordBook book = wordBookMapper.selectById(wordBookId);
         if (book == null || book.getIsDeleted() != 0
+                || ("SYSTEM".equals(book.getBookType()) && !"PUBLISHED".equals(book.getPublishStatus()))
                 || (!"SYSTEM".equals(book.getBookType()) && !userId.equals(book.getUserId()))) {
             throw new BusinessException("单词本不存在或无权访问");
         }
