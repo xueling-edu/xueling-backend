@@ -34,7 +34,7 @@ public class UserServiceImpl implements IUserService {
     /**
      * 新用户默认头像地址
      */
-    private final String DEFAULT_AVATAR_URL = "https://xueling-platform.oss-cn-hangzhou.aliyuncs.com/d915734b-a240-4350-acb6-30b6e2d3d981.jpg";
+    private static final String DEFAULT_AVATAR_URL = "https://xueling-platform.oss-cn-hangzhou.aliyuncs.com/user/avatar/default/d915734b-a240-4350-acb6-30b6e2d3d981.jpg";
 
     /**
      * 新增用户：生成唯一用户名并填充默认头像，主键由 MyBatis-Plus 雪花算法生成
@@ -203,7 +203,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     public String uploadAvatar(Long userId, MultipartFile avatar) {
         try {
-            String avatarUrl = aliOSSUtils.upload(avatar);
+            String avatarUrl = aliOSSUtils.uploadAvatar(avatar, userId);
             //更新用户头像URL
             UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", userId).set("avatar_url", avatarUrl);

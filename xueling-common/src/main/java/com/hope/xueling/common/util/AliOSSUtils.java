@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.UUID;
 /**
  * 阿里云OSS工具类
@@ -41,29 +42,31 @@ public class AliOSSUtils {
     private String bucketName;
 
     /**
-     * 实现上传图片到OSS
-     * @param multipartFile 上传的图片文件
+     * 上传用户头像到 user/avatar/{userId}/ 目录
+     * @param multipartFile 上传的头像文件
+     * @param userId 用户 ID
      * @return 图片访问 URL
      * @throws IOException 读取文件流失败
      */
-    public String upload(MultipartFile multipartFile) throws IOException {
-        // 获取上传的文件的输入流
-        InputStream inputStream = multipartFile.getInputStream();
-
-        // 避免文件覆盖
+    public String uploadAvatar(MultipartFile multipartFile, Long userId) throws IOException {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("用户 ID 无效");
+        }
         String originalFilename = multipartFile.getOriginalFilename();
-        String fileName = UUID.randomUUID() + originalFilename.substring(originalFilename.lastIndexOf("."));
+        int extensionStart = originalFilename == null ? -1 : originalFilename.lastIndexOf('.');
+        String extension = extensionStart < 0 ? "" : originalFilename.substring(extensionStart);
+        if (!extension.matches("\\.[a-zA-Z0-9]{1,10}")) {
+            throw new IOException("头像文件扩展名无效");
+        }
+        String objectKey = "user/avatar/" + userId + "/" + UUID.randomUUID() + extension.toLowerCase(Locale.ROOT);
 
-        //上传文件到 OSS
         OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
-        ossClient.putObject(bucketName, fileName, inputStream);
-
-        //文件访问路径
-        String url = endpoint.split("//")[0] + "//" + bucketName + "." + endpoint.split("//")[1] + "/" + fileName;
-
-        // 关闭ossClient
-        ossClient.shutdown();
-        return url;// 把上传到oss的路径返回
+        try (InputStream inputStream = multipartFile.getInputStream()) {
+            ossClient.putObject(bucketName, objectKey, inputStream);
+        } finally {
+            ossClient.shutdown();
+        }
+        return endpoint.split("//")[0] + "//" + bucketName + "." + endpoint.split("//")[1] + "/" + objectKey;
     }
 
     /**
