@@ -35,6 +35,16 @@ public class StudyQueueCardVO {
      * 例句翻译
      */
     private String exampleTranslation;
+    /** Reviewed content for this one meaning; absent fields trigger a plain explanation. */
+    private String coreMeaning;
+    private String contextSentence;
+    private String contextTranslation;
+    private String contextQuestion;
+    private String optionA;
+    private String optionB;
+    private String correctOption;
+    private String clueExplanation;
+    private String contentVersion;
     /**
      * 配图地址
      */

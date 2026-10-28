@@ -8,10 +8,13 @@ import com.hope.xueling.english.vocab.domain.dto.UpdateStudyBookDTO;
 import com.hope.xueling.english.vocab.domain.dto.UpdateStudySettingsDTO;
 import com.hope.xueling.english.vocab.domain.vo.*;
 import com.hope.xueling.english.vocab.service.IStudyService;
+import com.hope.xueling.english.vocab.service.StudyFollowupService;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
+import com.hope.xueling.english.vocab.mapper.StudyMapper;
 
 /**
  * 学习计划控制器：今日学习队列、评分提交、学习统计、日历与学习设置，用户身份一律取自登录令牌
@@ -23,6 +26,23 @@ import java.util.List;
 @RequestMapping("/study")
 public class StudyController {
     private final IStudyService studyService;
+    private final StudyFollowupService followupService;
+
+    @GetMapping("/followups")
+    public Result<List<StudyMapper.FollowupRow>> followups() {
+        return Result.success(followupService.pending(userId()));
+    }
+
+    @GetMapping("/followups/summary")
+    public Result<StudyMapper.FollowupSummary> followupSummary() {
+        return Result.success(followupService.summary(userId()));
+    }
+
+    @PostMapping("/followups/{requestId}/actions")
+    public Result<String> followupAction(@PathVariable String requestId, @RequestBody Map<String, String> action) {
+        followupService.record(userId(), requestId, action.get("action"), action.get("result"));
+        return Result.success("已记录");
+    }
 
     /**
      * 从当前请求的令牌上下文中取用户 ID

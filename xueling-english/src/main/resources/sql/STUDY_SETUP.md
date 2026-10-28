@@ -12,6 +12,8 @@
 4. `word_learning_progress_table.sql`
 5. `word_review_record_table.sql`
 6. `study_check_in_table.sql`：创建每日自动打卡表（已有学习数据库也需单独执行）。
+6a. `word_study_followup_table.sql`：创建评分后巩固与回访状态表；已有学习数据库也需单独执行，须在部署新版后端前执行。
+6b. `word_study_content_table.sql`：创建审核后教学内容表；与 6a 一起在部署新版后端前执行。只有 `approved=1` 的词义、例句和题目会进入学习卡；尚无审核内容时自动退回词典释义讲解。
 7. `seed_cet4.sql`：从已导入的 ECDICT 建立系统四级词书。
 
 如果任一旧学习表有记录，**不要执行** `migrate_study.sql`；旧表只有二档复习结果，无法直接等价转换为新 FSRS 卡片，需要先制定保留历史记录和初始化新卡片的迁移方案。脚本报错后不得使用 `mysql --force` 继续执行。
@@ -20,6 +22,6 @@
 
 ## 新数据库
 
-先按原项目顺序创建 `user`、`word_dictionary`、`word_book` 和 `word_book_dictionary_relation`，接着执行上面的第 2～6 个表结构文件。导入词典后执行 `seed_cet4.sql`。
+先按原项目顺序创建 `user`、`word_dictionary`、`word_book` 和 `word_book_dictionary_relation`，接着执行上面的第 2～6b 个表结构文件。导入词典后执行 `seed_cet4.sql`。
 
 系统词书通过 `system_key='CET4'` 查询，不依赖固定主键。用户首次访问 `/study/today` 时自动创建默认学习设置，并将系统四级词书加入自己的学习计划。

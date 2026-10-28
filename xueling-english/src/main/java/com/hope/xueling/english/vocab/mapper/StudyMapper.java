@@ -30,6 +30,81 @@ public class StudyMapper {
      */
     private final JdbcTemplate jdbc;
 
+    public record FollowupRow(String requestId, int rating, boolean newCard, int laterCards,
+                              Instant dueAt, String teachingResult, String wordId, String word,
+                              String meaning, String phonetic, String example, String exampleTranslation,
+                              String coreMeaning, String contextSentence, String contextTranslation,
+                              String contextQuestion, String optionA, String optionB,
+                              String correctOption, String clueExplanation, String contentVersion) {}
+    public record FollowupSummary(int passed, int failed, int skipped) {}
+
+    public FollowupSummary followupSummary(long userId, Instant start, Instant end) {
+        return jdbc.queryForObject("SELECT COUNT(CASE WHEN revisit_result='revisit_pass' THEN 1 END) passed,"
+                + "COUNT(CASE WHEN revisit_result='revisit_fail' THEN 1 END) failed,"
+                + "COUNT(CASE WHEN revisit_result='skipped' THEN 1 END) skipped "
+                + "FROM word_study_followup WHERE user_id=? AND revisited_at>=? AND revisited_at<?",
+                (rs, row) -> new FollowupSummary(rs.getInt("passed"), rs.getInt("failed"), rs.getInt("skipped")),
+                userId, dbTime(start), dbTime(end));
+    }
+
+    /** Create a recoverable teaching task only after the first review has been committed. */
+    public void insertFollowup(long userId, long wordId, String requestId, int rating, boolean newCard, Instant at) {
+        jdbc.update("UPDATE word_study_followup SET revisit_result='superseded', revisited_at=? "
+                + "WHERE user_id=? AND word_id=? AND revisit_result IS NULL", dbTime(at), userId, wordId);
+        if (rating <= 2 || (rating == 3 && newCard)) {
+            jdbc.update("INSERT INTO word_study_followup (user_id,word_id,request_id,rating,content_version,created_at) "
+                    + "SELECT ?,d.id,?,?,COALESCE(c.content_version,'dictionary-1'),? "
+                    + "FROM word_dictionary d LEFT JOIN word_study_content c ON c.word_id=d.id AND c.approved=1 "
+                    + "WHERE d.id=? AND (?<=2 OR c.context_sentence IS NOT NULL)",
+                    userId, requestId, rating, dbTime(at), wordId, rating);
+        }
+    }
+
+    public List<FollowupRow> pendingFollowups(long userId) {
+        return jdbc.query("SELECT f.request_id,f.rating,(r.due_before IS NULL) AS new_card,"
+                + "(SELECT COUNT(DISTINCT later.word_id) FROM word_review_record later "
+                + "WHERE later.user_id=f.user_id AND later.id>r.id AND later.word_id<>f.word_id) AS later_cards,"
+                + "p.due_at,f.teaching_result,d.id AS word_id,d.word,d.meaning,d.phonetic,d.example,d.example_translation,"
+                + "c.core_meaning,c.context_sentence,c.context_translation,c.context_question,c.option_a,c.option_b,"
+                + "c.correct_option,c.clue_explanation,f.content_version "
+                + "FROM word_study_followup f JOIN word_review_record r "
+                + "ON r.user_id=f.user_id AND r.request_id=f.request_id "
+                + "JOIN word_learning_progress p ON p.user_id=f.user_id AND p.word_id=f.word_id AND p.card_type='EN_ZH' "
+                + "JOIN word_dictionary d ON d.id=f.word_id "
+                + "LEFT JOIN word_study_content c ON c.word_id=d.id AND c.approved=1 "
+                + "AND c.content_version=f.content_version "
+                + "WHERE f.user_id=? AND f.revisit_result IS NULL ORDER BY f.id LIMIT 30",
+                (rs, row) -> new FollowupRow(rs.getString("request_id"), rs.getInt("rating"),
+                        rs.getBoolean("new_card"), rs.getInt("later_cards"), utc(rs, "due_at"),
+                        rs.getString("teaching_result"), String.valueOf(rs.getLong("word_id")),
+                        rs.getString("word"), rs.getString("meaning"), rs.getString("phonetic"),
+                        rs.getString("example"), rs.getString("example_translation"),
+                        rs.getString("core_meaning"), rs.getString("context_sentence"),
+                        rs.getString("context_translation"), rs.getString("context_question"),
+                        rs.getString("option_a"), rs.getString("option_b"),
+                        rs.getString("correct_option"), rs.getString("clue_explanation"),
+                        rs.getString("content_version")), userId);
+    }
+
+    public int saveFollowupAction(long userId, String requestId, String action, String result, Instant at) {
+        if ("teaching".equals(action)) {
+            return jdbc.update("UPDATE word_study_followup SET teaching_result=?,teaching_at=?,"
+                    + "revisit_result=CASE WHEN rating=3 THEN 'not_required' ELSE revisit_result END "
+                    + "WHERE user_id=? AND request_id=? AND teaching_result IS NULL",
+                    result, dbTime(at), userId, requestId);
+        }
+        return jdbc.update("UPDATE word_study_followup SET revisit_result=?,revisited_at=? "
+                + "WHERE user_id=? AND request_id=? AND revisit_result IS NULL",
+                result, dbTime(at), userId, requestId);
+    }
+
+    public String followupActionResult(long userId, String requestId, String action) {
+        String column = "teaching".equals(action) ? "teaching_result" : "revisit_result";
+        List<String> rows = jdbc.query("SELECT " + column + " FROM word_study_followup "
+                        + "WHERE user_id=? AND request_id=?", (rs, row) -> rs.getString(1), userId, requestId);
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
     /**
      * 卡片进度行
      * @param id 进度记录 ID
@@ -116,6 +191,15 @@ public class StudyMapper {
         card.setPhonetic(rs.getString("phonetic"));
         card.setExample(rs.getString("example"));
         card.setExampleTranslation(rs.getString("example_translation"));
+        card.setCoreMeaning(rs.getString("core_meaning"));
+        card.setContextSentence(rs.getString("context_sentence"));
+        card.setContextTranslation(rs.getString("context_translation"));
+        card.setContextQuestion(rs.getString("context_question"));
+        card.setOptionA(rs.getString("option_a"));
+        card.setOptionB(rs.getString("option_b"));
+        card.setCorrectOption(rs.getString("correct_option"));
+        card.setClueExplanation(rs.getString("clue_explanation"));
+        card.setContentVersion(rs.getString("content_version"));
         card.setImageUrl(rs.getString("image_url"));
         card.setNewCard(isNew);
         card.setVersion(isNew ? 0 : rs.getInt("version"));
@@ -205,8 +289,11 @@ public class StudyMapper {
      */
     public List<StudyQueueCardVO> dueCards(long userId, Instant now, int limit) {
         return jdbc.query("SELECT d.id AS word_id,d.word,d.meaning,d.phonetic,d.example,"
-                + "d.example_translation,d.image_url,p.state,p.due_at,p.version "
+                + "d.example_translation,d.image_url,c.core_meaning,c.context_sentence,c.context_translation,"
+                + "c.context_question,c.option_a,c.option_b,c.correct_option,c.clue_explanation,c.content_version,"
+                + "p.state,p.due_at,p.version "
                 + "FROM word_learning_progress p JOIN word_dictionary d ON d.id=p.word_id "
+                + "LEFT JOIN word_study_content c ON c.word_id=d.id AND c.approved=1 "
                 + "WHERE p.user_id=? AND p.card_type='EN_ZH' AND p.due_at<=? AND " + ACTIVE_BOOK_WORD + " "
                 + "ORDER BY p.due_at,p.id LIMIT ?",
                 (rs, rowNum) -> queueCard(rs, false), userId, dbTime(now), limit);
@@ -220,10 +307,12 @@ public class StudyMapper {
      */
     public List<StudyQueueCardVO> newCards(long userId, int limit) {
         return jdbc.query("SELECT d.id AS word_id,d.word,d.meaning,d.phonetic,d.example,"
-                + "d.example_translation,d.image_url "
+                + "d.example_translation,d.image_url,c.core_meaning,c.context_sentence,c.context_translation,"
+                + "c.context_question,c.option_a,c.option_b,c.correct_option,c.clue_explanation,c.content_version "
                 + "FROM user_study_book s JOIN word_book b ON b.id=s.book_id "
                 + "JOIN word_book_dictionary_relation r ON r.word_book_id=b.id "
                 + "JOIN word_dictionary d ON d.id=r.word_id "
+                + "LEFT JOIN word_study_content c ON c.word_id=d.id AND c.approved=1 "
                 + "LEFT JOIN word_learning_progress p ON p.user_id=s.user_id AND p.word_id=d.id AND p.card_type='EN_ZH' "
                 + "WHERE s.user_id=? AND s.enabled=1 AND b.is_deleted=0 "
                 + "AND ((b.book_type='SYSTEM' AND b.publish_status='PUBLISHED') OR b.user_id=s.user_id) AND p.id IS NULL "

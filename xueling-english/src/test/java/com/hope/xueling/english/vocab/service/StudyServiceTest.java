@@ -69,6 +69,8 @@ class StudyServiceTest {
                                            Instant reviewedAt, Instant dueBefore, Instant dueAfter,
                                            Integer elapsedMs, String schedulerVersion, double retention,
                                            String stateAfter, int versionAfter, String requestId) {}
+        @Override public void insertFollowup(long userId, long wordId, String requestId, int rating,
+                                             boolean newCard, Instant at) {}
         @Override public void insertCheckIn(long userId, LocalDate date, Instant checkedInAt) {
             insertedCheckIns++;
             checkedDates = List.of(date);

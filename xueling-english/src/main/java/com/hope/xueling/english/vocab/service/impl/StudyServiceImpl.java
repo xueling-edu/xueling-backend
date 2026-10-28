@@ -219,6 +219,8 @@ public class StudyServiceImpl implements IStudyService {
                 version == 0 ? null : progress.dueAt(), scheduled.dueAt(), request.getElapsedMs(),
                 reviewScheduler.version(), settings.getDesiredRetention(), scheduled.state(),
                 versionAfter, request.getRequestId());
+        studyMapper.insertFollowup(userId, wordId, request.getRequestId(), request.getRating(),
+                version == 0, reviewedAt);
         checkInIfComplete(userId, settings, reviewedAt, day,
                 studyMapper.countDue(userId, reviewedAt),
                 studyMapper.countIntroduced(userId, day.date()), true);
