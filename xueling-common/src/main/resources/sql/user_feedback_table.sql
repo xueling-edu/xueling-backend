@@ -6,15 +6,21 @@ CREATE TABLE IF NOT EXISTS `user_feedback` (
   `subcategory` varchar(32) DEFAULT NULL COMMENT '细分类别',
   `content` varchar(2000) NOT NULL COMMENT '反馈内容',
   `source_page` varchar(255) DEFAULT NULL COMMENT '来源页面路径',
-  `context_word` varchar(100) DEFAULT NULL COMMENT '关联单词',
+  `context_word` varchar(255) DEFAULT NULL COMMENT '关联单词',
+  `word_id` bigint unsigned DEFAULT NULL COMMENT '关联词典词条ID',
+  `observed_content` text DEFAULT NULL COMMENT '用户报错时看到的内容',
+  `suggested_content` text DEFAULT NULL COMMENT '用户建议的正确内容',
   `contact` varchar(100) DEFAULT NULL COMMENT '可选联系方式',
   `status` varchar(20) NOT NULL DEFAULT 'PENDING' COMMENT '处理状态',
   `admin_reply` varchar(2000) DEFAULT NULL COMMENT '处理回复',
+  `resolution` varchar(20) DEFAULT NULL COMMENT 'FIXED、NO_CHANGE或UNRESOLVED',
+  `revision_id` bigint unsigned DEFAULT NULL COMMENT '关联词条修订ID',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `replied_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_request` (`user_id`, `request_id`),
   KEY `idx_user_created` (`user_id`, `create_time`),
-  KEY `idx_status_created` (`status`, `create_time`)
+  KEY `idx_status_created` (`status`, `create_time`),
+  KEY `idx_word_id` (`word_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户反馈';

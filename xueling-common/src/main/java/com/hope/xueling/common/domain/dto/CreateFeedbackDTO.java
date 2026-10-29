@@ -33,6 +33,9 @@ public class CreateFeedbackDTO {
      * 反馈关联的单词或上下文内容
      */
     private String contextWord;
+    private String wordId;
+    private String observedContent;
+    private String suggestedContent;
     /**
      * 用户留下的联系方式
      */

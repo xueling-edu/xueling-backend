@@ -66,6 +66,25 @@ class FeedbackServiceImplTest {
         assertEquals(0, fake.inserts);
     }
 
+    @Test
+    void translationFeedbackUsesVerifiedDictionaryIdentity() {
+        CreateFeedbackDTO request = request();
+        request.setCategory("TRANSLATION");
+        request.setSubcategory("meaning");
+        request.setWordId("101");
+        request.setContextWord("untrusted spelling");
+        request.setObservedContent("错误释义");
+        fake.wordName = "apple";
+        service.create(8L, request);
+        assertEquals(101L, fake.saved.getWordId());
+        assertEquals("apple", fake.saved.getContextWord());
+        assertEquals("错误释义", fake.saved.getObservedContent());
+
+        fake.wordName = null;
+        request.setRequestId(UUID.randomUUID().toString());
+        assertThrows(ValidationException.class, () -> service.create(8L, request));
+    }
+
     private static CreateFeedbackDTO request() {
         CreateFeedbackDTO request = new CreateFeedbackDTO();
         request.setRequestId(UUID.randomUUID().toString());
@@ -80,6 +99,8 @@ class FeedbackServiceImplTest {
         int recentCount;
         int inserts;
         int calls;
+        String wordName;
+        Feedback saved;
 
         @Override
         public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) {
@@ -88,7 +109,8 @@ class FeedbackServiceImplTest {
                 case "selectOne" -> existing;
                 case "selectById" -> byId;
                 case "countRecent" -> recentCount;
-                case "insert" -> { inserts++; yield 1; }
+                case "findWord" -> wordName;
+                case "insert" -> { inserts++; saved = (Feedback) args[0]; yield 1; }
                 default -> throw new UnsupportedOperationException(method.getName());
             };
         }

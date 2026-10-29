@@ -78,16 +78,16 @@ def insert_statement(rows):
     return (
         f"INSERT INTO `word_dictionary` ({columns}) VALUES\n{values}\n"
         "ON DUPLICATE KEY UPDATE "
-        "`word`=VALUES(`word`), `phonetic`=COALESCE(VALUES(`phonetic`),`phonetic`), "
+        "`word`=VALUES(`word`), `phonetic`=IF(`source`='MANUAL',`phonetic`,COALESCE(VALUES(`phonetic`),`phonetic`)), "
         "`definition`=VALUES(`definition`), "
-        "`meaning`=COALESCE(NULLIF(VALUES(`meaning`),''),`meaning`), "
+        "`meaning`=IF(`source`='MANUAL',`meaning`,COALESCE(NULLIF(VALUES(`meaning`),''),`meaning`)), "
         "`pos`=VALUES(`pos`), `collins`=VALUES(`collins`), "
         "`oxford`=VALUES(`oxford`), `tag`=VALUES(`tag`), "
         "`bnc`=VALUES(`bnc`), `frq`=VALUES(`frq`), "
         "`exchange`=VALUES(`exchange`), `detail`=VALUES(`detail`), "
         "`audio`=VALUES(`audio`), `dataset_version`=VALUES(`dataset_version`), "
-        "`source`=IF(VALUES(`meaning`) IS NOT NULL AND VALUES(`meaning`)<>'', "
-        "'ECDICT', IF(`source`='AI' OR `source`='AI_ENRICHED', 'AI_ENRICHED', 'ECDICT'));\n"
+        "`source`=IF(`source`='MANUAL','MANUAL',IF(VALUES(`meaning`) IS NOT NULL AND VALUES(`meaning`)<>'', "
+        "'ECDICT', IF(`source`='AI' OR `source`='AI_ENRICHED', 'AI_ENRICHED', 'ECDICT')));\n"
     )
 
 

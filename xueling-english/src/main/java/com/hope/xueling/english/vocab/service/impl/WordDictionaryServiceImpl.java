@@ -1,6 +1,7 @@
 package com.hope.xueling.english.vocab.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.hope.xueling.common.exception.BusinessException;
 import com.hope.xueling.common.util.ThreadLocalUtils;
 import com.hope.xueling.english.vocab.domain.dto.WordDictionaryDTO;
@@ -95,11 +96,11 @@ public class WordDictionaryServiceImpl implements IWordDictionaryService {
                      * @param entity 待补齐的词条
                      * @param translation 大模型返回的词典条目
                      */
-                    enrich(entity, translation);
+                    entity = enrich(entity, translation);
                 }
             }
         } else {
-            enrich(entity, translation);
+            entity = enrich(entity, translation);
         }
         return toVO(entity);
     }
@@ -128,15 +129,20 @@ public class WordDictionaryServiceImpl implements IWordDictionaryService {
         return wordDictionaryMapper.selectOne(new QueryWrapper<WordDictionary>().eq("word_key", key));
     }
 
-    private void enrich(WordDictionary entity, WordDictionaryDTO translation) {
-        entity.setMeaning(translation.getMeaning());
-        entity.setSource("AI_ENRICHED");
+    private WordDictionary enrich(WordDictionary entity, WordDictionaryDTO translation) {
+        LambdaUpdateWrapper<WordDictionary> update = new LambdaUpdateWrapper<WordDictionary>()
+                .eq(WordDictionary::getId, entity.getId())
+                .and(w -> w.isNull(WordDictionary::getMeaning).or().eq(WordDictionary::getMeaning, ""))
+                .set(WordDictionary::getMeaning, translation.getMeaning())
+                .set(WordDictionary::getSource, "AI_ENRICHED")
+                .set(WordDictionary::getExample, translation.getExample())
+                .set(WordDictionary::getExampleTranslation, translation.getExampleTranslation())
+                .setSql("content_version = content_version + 1");
         if (entity.getPhonetic() == null || entity.getPhonetic().isBlank()) {
-            entity.setPhonetic(translation.getPhonetic());
+            update.set(WordDictionary::getPhonetic, translation.getPhonetic());
         }
-        entity.setExample(translation.getExample());
-        entity.setExampleTranslation(translation.getExampleTranslation());
-        wordDictionaryMapper.updateById(entity);
+        wordDictionaryMapper.update(null, update);
+        return wordDictionaryMapper.selectById(entity.getId());
     }
 
     /**

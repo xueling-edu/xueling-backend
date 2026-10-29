@@ -40,6 +40,9 @@ public class FeedbackVO {
      * 反馈关联的单词或上下文内容
      */
     private String contextWord;
+    private String wordId;
+    private String observedContent;
+    private String suggestedContent;
     /**
      * 用户留下的联系方式
      */
@@ -52,6 +55,8 @@ public class FeedbackVO {
      * 管理员回复内容
      */
     private String adminReply;
+    private String resolution;
+    private String revisionId;
     /**
      * 提交时间
      */
@@ -79,9 +84,14 @@ public class FeedbackVO {
         vo.setContent(feedback.getContent());
         vo.setSourcePage(feedback.getSourcePage());
         vo.setContextWord(feedback.getContextWord());
+        vo.setWordId(feedback.getWordId() == null ? null : String.valueOf(feedback.getWordId()));
+        vo.setObservedContent(feedback.getObservedContent());
+        vo.setSuggestedContent(feedback.getSuggestedContent());
         vo.setContact(feedback.getContact());
         vo.setStatus(feedback.getStatus());
         vo.setAdminReply(feedback.getAdminReply());
+        vo.setResolution(feedback.getResolution());
+        vo.setRevisionId(feedback.getRevisionId() == null ? null : String.valueOf(feedback.getRevisionId()));
         vo.setCreateTime(feedback.getCreateTime());
         vo.setUpdateTime(feedback.getUpdateTime());
         vo.setRepliedAt(feedback.getRepliedAt());

@@ -15,6 +15,7 @@ CREATE TABLE `word_dictionary` (
     `detail` mediumtext COLLATE utf8mb4_unicode_ci COMMENT 'ECDICT扩展数据原文',
     `audio` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ECDICT音频地址',
     `source` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ECDICT、AI或AI_ENRICHED',
+    `content_version` bigint unsigned NOT NULL DEFAULT 0 COMMENT '内容修改版本，供管理端并发检查',
     `dataset_version` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ECDICT导入版本',
     `example` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '英文例句',
     `example_translation` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '例句翻译',

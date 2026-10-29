@@ -81,7 +81,23 @@ public class FeedbackServiceImpl implements IFeedbackService {
         if (sourcePage != null && (!sourcePage.startsWith("/") || sourcePage.startsWith("//"))) {
             throw new ValidationException("来源页面格式有误");
         }
-        String contextWord = optional(request.getContextWord(), 100, "关联单词");
+        String contextWord = optional(request.getContextWord(), 255, "关联单词");
+        String observedContent = optional(request.getObservedContent(), 2000, "所见内容");
+        String suggestedContent = optional(request.getSuggestedContent(), 2000, "建议内容");
+        Long wordId = null;
+        if (request.getWordId() != null && !request.getWordId().isBlank()) {
+            if (!"TRANSLATION".equals(category)) throw new ValidationException("只有词条纠错可以关联单词");
+            try { wordId = Long.valueOf(request.getWordId()); }
+            catch (NumberFormatException error) { throw new ValidationException("词条编号无效"); }
+            if (wordId <= 0) throw new ValidationException("词条编号无效");
+        }
+        if (!"TRANSLATION".equals(category) && (observedContent != null || suggestedContent != null))
+            throw new ValidationException("此反馈类型无需词条内容");
+        if (wordId != null) {
+            String canonicalWord = feedbackMapper.findWord(wordId);
+            if (canonicalWord == null) throw new ValidationException("关联词条不存在，请重新打开单词后提交");
+            contextWord = canonicalWord;
+        }
         String contact = optional(request.getContact(), 100, "联系方式");
         if (feedbackMapper.countRecent(userId) >= 5) throw new BusinessException("提交太频繁，请稍后再试");
 
@@ -93,6 +109,9 @@ public class FeedbackServiceImpl implements IFeedbackService {
         feedback.setContent(content);
         feedback.setSourcePage(sourcePage);
         feedback.setContextWord(contextWord);
+        feedback.setWordId(wordId);
+        feedback.setObservedContent(observedContent);
+        feedback.setSuggestedContent(suggestedContent);
         feedback.setContact(contact);
         feedback.setStatus("PENDING");
         feedback.setCreateTime(LocalDateTime.now());

@@ -15,6 +15,8 @@ import java.util.List;
  */
 @Mapper
 public interface FeedbackMapper extends BaseMapper<Feedback> {
+    @Select("SELECT word FROM word_dictionary WHERE id = #{wordId}")
+    String findWord(@Param("wordId") long wordId);
     /**
      * 分页查询指定用户提交的反馈，按提交时间倒序
      * @param userId 用户 ID

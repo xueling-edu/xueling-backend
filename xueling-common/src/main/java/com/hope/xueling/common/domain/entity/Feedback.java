@@ -48,6 +48,9 @@ public class Feedback {
      * 反馈关联的单词或上下文内容
      */
     private String contextWord;
+    private Long wordId;
+    private String observedContent;
+    private String suggestedContent;
     /**
      * 用户留下的联系方式
      */
@@ -60,6 +63,8 @@ public class Feedback {
      * 管理员回复内容
      */
     private String adminReply;
+    private String resolution;
+    private Long revisionId;
     /**
      * 提交时间
      */
