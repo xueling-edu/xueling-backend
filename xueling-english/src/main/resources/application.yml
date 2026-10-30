@@ -171,6 +171,10 @@ llm:
     chat-model: "deepseek-chat"
     flash-model: "deepseek-flash"
     reasoner-model: "deepseek-reasoner"
+  siliconflow:
+    api-key: ${SILICONFLOW_API_KEY}
+    url: "https://api.siliconflow.cn"
+    model: "XingChenAGI/Xing4.0-29B"
   zhipu:
     api-key: ${ZHIPU_API_KEY}
     url: "https://open.bigmodel.cn/api/paas/v4"

@@ -51,5 +51,15 @@ public class AIConfig {
                 .build();
     }
 
-
+    /**
+     * 词汇语境文章生成与用义复核使用硅基流动模型
+     * @param siliconFlowChatModel 硅基流动聊天模型
+     * @return ChatClient
+     */
+    @Bean("siliconFlowChatClient")
+    public ChatClient siliconFlowChatClient(@Qualifier("springSiliconFlowChatModel") ChatModel siliconFlowChatModel) {
+        return ChatClient.builder(siliconFlowChatModel)
+                .defaultAdvisors(SimpleLoggerAdvisor.builder().build())
+                .build();
+    }
 }

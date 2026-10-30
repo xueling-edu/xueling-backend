@@ -63,6 +63,15 @@ public class LLMConfig {
     @Value("${llm.deepseek.reasoner-model}")
     private String deepSeekReasonerModel;
     /**
+     * 硅基流动 OpenAI 兼容接口配置，供词汇语境文章生成使用
+     */
+    @Value("${llm.siliconflow.api-key}")
+    private String siliconFlowApiKey;
+    @Value("${llm.siliconflow.url}")
+    private String siliconFlowUrl;
+    @Value("${llm.siliconflow.model}")
+    private String siliconFlowModel;
+    /**
      * 智普模型相关配置
      */
     @Value("${llm.zhipu.api-key}")
@@ -134,6 +143,26 @@ public class LLMConfig {
                 .openAiApi(openAiApi)
                 .defaultOptions(OpenAiChatOptions.builder()
                         .model(deepSeekFlashModel)
+                        .build())
+                .build();
+    }
+
+    /**
+     * 词汇语境文章专用模型。OpenAiApi 会将 completionsPath 接在基础地址后。
+     * @return ChatModel
+     */
+    @Bean("springSiliconFlowChatModel")
+    public ChatModel siliconFlowChatModel() {
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .apiKey(siliconFlowApiKey)
+                .baseUrl(siliconFlowUrl)
+                .completionsPath("/v1/chat/completions")
+                .build();
+
+        return OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .model(siliconFlowModel)
                         .build())
                 .build();
     }

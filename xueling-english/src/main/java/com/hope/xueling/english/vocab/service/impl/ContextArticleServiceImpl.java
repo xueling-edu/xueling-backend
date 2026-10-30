@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class ContextArticleServiceImpl implements IContextArticleService {
-    private static final String MODEL_NAME = "deepseekChatClient";
+    private static final String MODEL_NAME = "XingChenAGI/Xing4.0-29B";
     private static final int DAILY_LIMIT = 10;
     private static final Set<String> TOPICS = Set.of("日常生活", "校园与学习", "旅行见闻", "科技与未来", "自然与环境", "职场与成长");
     private final ChatClient chatClient;
@@ -43,7 +43,7 @@ public class ContextArticleServiceImpl implements IContextArticleService {
     private final ContextAttemptMapper attemptMapper;
     private final ObjectMapper objectMapper;
 
-    public ContextArticleServiceImpl(@Qualifier("deepseekChatClient") ChatClient chatClient,
+    public ContextArticleServiceImpl(@Qualifier("siliconFlowChatClient") ChatClient chatClient,
                                      ContextArticleMapper mapper, ContextAttemptMapper attemptMapper,
                                      ObjectMapper objectMapper) {
         this.chatClient = chatClient;
